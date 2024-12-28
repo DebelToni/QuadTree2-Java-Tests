@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Minimal Asteroids-like with Polygon Collision</title>
+  <style>
+    body {
+      background: #222;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    canvas {
+      background: #ddd;
+      display: block;
+      margin: 0 auto;
+      margin-top: 20px;
+      border: 2px solid #333;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+// ====================== Collision Functions (JS Version) ======================
+function orientation(x1, y1, x2, y2, x3, y3) {
+  let cross = (y2 - y1) * (x3 - x2) - (y3 - y2) * (x2 - x1);
+  if      (cross > 0) return +1; 
+  else if (cross < 0) return -1; 
+  else                return  0; 
+}
+
+function doSegmentsIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
+  let o1 = orientation(x1, y1, x2, y2, x3, y3);
+  let o2 = orientation(x1, y1, x2, y2, x4, y4);
+  let o3 = orientation(x3, y3, x4, y4, x1, y1);
+  let o4 = orientation(x3, y3, x4, y4, x2, y2);
+
+  // General case
+  if (o1 !== o2 && o3 !== o4) {
+    return true;
+  }
+  return false;
+}
+
+function pointInPolygon(px, py, vx, vy) {
+  let count = 0;
+  let n = vx.length;
+  for (let i = 0; i < n; i++) {
+    let x1 = vx[i], y1 = vy[i];
+    let x2 = vx[(i + 1) % n], y2 = vy[(i + 1) % n];
+
+    // Check if the line from (px, py) horizontally right intersects edge
+    let isBetweenY = (y1 > py) !== (y2 > py);
+    if (isBetweenY) {
+      let xIntersect = x1 + (py - y1) * (x2 - x1) / (y2 - y1);
+      if (xIntersect > px) {
+        count++;
+      }
+    }
+  }
+  return (count % 2 === 1);
+}
+
+function polygonsIntersectOrContain(Ax, Ay, Bx, By) {
+  let sizeA = Ax.length;
+  let sizeB = Bx.length;
+
+  // 1) Check edge intersections
+  for (let i = 0; i < sizeA; i++) {
+    let Ax1 = Ax[i];
+    let Ay1 = Ay[i];
+    let Ax2 = Ax[(i + 1) % sizeA];
+    let Ay2 = Ay[(i + 1) % sizeA];
+
+    for (let j = 0; j < sizeB; j++) {
+      let Bx1 = Bx[j];
+      let By1 = By[j];
+      let Bx2 = Bx[(j + 1) % sizeB];
+      let By2 = By[(j + 1) % sizeB];
+
+      if (doSegmentsIntersect(Ax1, Ay1, Ax2, Ay2, Bx1, By1, Bx2, By2)) {
+        return true;
+      }
+    }
+  }
+
+  // 2) Check containment (pick a vertex of A in B or vertex of B in A)
+  if (pointInPolygon(Ax[0], Ay[0], Bx, By)) return true;
+  if (pointInPolygon(Bx[0], By[0], Ax, Ay)) return true;
+
+  return false;
+}
+
+function lineSegmentIntersectsCircle(x1, y1, x2, y2, cx, cy, r) {
+  let dx = x2 - x1;
+  let dy = y2 - y1;
+  let fx = cx - x1;
+  let fy = cy - y1;
+  let segLenSq = dx * dx + dy * dy;
+
+  if (segLenSq < 1e-12) {
+    // segment is just a point
+    let distSq = fx * fx + fy * fy;
+    return (distSq <= r * r);
+  }
+
+  let t = (fx * dx + fy * dy) / segLenSq;
+  t = Math.max(0, Math.min(1, t));
+
+  let closestX = x1 + t * dx;
+  let closestY = y1 + t * dy;
+
+  let distX = closestX - cx;
+  let distY = closestY - cy;
+  let distSq = distX * distX + distY * distY;
+
+  return (distSq <= r * r);
+}
+
+function polygonIntersectsCircle(Vx, Vy, cx, cy, r) {
+  let n = Vx.length;
+
+  // 1) If circle center is inside polygon
+  if (pointInPolygon(cx, cy, Vx, Vy)) {
+    return true;
+  }
+
+  // 2) If any polygon vertex is within circle
+  for (let i = 0; i < n; i++) {
+    let dx = Vx[i] - cx;
+    let dy = Vy[i] - cy;
+    if (dx * dx + dy * dy <= r * r) {
+      return true;
+    }
+  }
+
+  // 3) Check edges
+  for (let i = 0; i < n; i++) {
+    let x1 = Vx[i];
+    let y1 = Vy[i];
+    let x2 = Vx[(i + 1) % n];
+    let y2 = Vy[(i + 1) % n];
+    if (lineSegmentIntersectsCircle(x1, y1, x2, y2, cx, cy, r)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ====================== Minimal Asteroids-like Demo ======================
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const WIDTH = canvas.width;
+const HEIGHT = canvas.height;
+
+// Player polygon (a simple triangle ship)
+let playerX = [100, 90, 110];
+let playerY = [100, 200, 200];
+
+// Some "asteroids" (polygons) in the field
+let asteroids = [
+  {
+    x: [300, 350, 370, 340, 290],
+    y: [200, 210, 250, 280, 240]
+  },
+  {
+    x: [600, 570, 520, 560],
+    y: [400, 420, 410, 380]
+  },
+  {
+    x: [400],
+    y: [500],
+    r: 20
+  }
+];
+
+// Bullets will be circles
+let bullets = []; // each bullet: { cx, cy, r, active }
+
+// Keyboard input
+let keys = {};
+window.addEventListener("keydown", e => {
+  keys[e.code] = true;
+});
+window.addEventListener("keyup", e => {
+  keys[e.code] = false;
+});
+
+function update() {
+  // Move the player's polygon with arrow keys
+  let speed = 3;
+  if (keys["ArrowLeft"]) {
+    for (let i = 0; i < playerX.length; i++) {
+      playerX[i] -= speed;
+    }
+  }
+  if (keys["ArrowRight"]) {
+    for (let i = 0; i < playerX.length; i++) {
+      playerX[i] += speed;
+    }
+  }
+  if (keys["ArrowUp"]) {
+    for (let i = 0; i < playerY.length; i++) {
+      playerY[i] -= speed;
+    }
+  }
+  if (keys["ArrowDown"]) {
+    for (let i = 0; i < playerY.length; i++) {
+      playerY[i] += speed;
+    }
+  }
+
+  // Space bar = shoot
+  // We'll create a small circle bullet from the tip of the triangle
+  if (keys["Space"]) {
+    // Only create if not spamming. Real game would handle bullet cooldown.
+    keys["Space"] = false; 
+    let bx = playerX[0]; // tip of the triangle
+    let by = playerY[0];
+    bullets.push({ cx: bx, cy: by, r: 5, active: true });
+  }
+
+  // Move bullets upward
+  bullets.forEach(b => {
+    if (b.active) {
+      b.cy -= 5;
+      // Mark inactive if it goes off screen
+      if (b.cy < -20) b.active = false;
+    }
+  });
+
+  // Check bullet vs asteroid collisions
+  bullets.forEach(b => {
+    if (!b.active) return;
+    for (let ast of asteroids) {
+      if (polygonIntersectsCircle(ast.x, ast.y, b.cx, b.cy, b.r)) {
+        // "Destroy" asteroid and bullet
+        b.active = false;
+        // In a real game, you'd remove or break up the asteroid
+        ast.x = []; 
+        ast.y = [];
+      }
+    }
+  });
+
+  // Check if player collides with any asteroid
+  // (polygonsIntersectOrContain)
+  let hit = false;
+  for (let ast of asteroids) {
+		  if (ast.x.length == 1){
+		  if (polygonIntersectsCircle(playerX, playerY, ast.x[0], ast.y[0], ast.r)) {
+				  console.log("Player hit!");
+				  // In a real game: end or reduce HP, etc.
+				 hit = true;
+			  }
+		  } 
+		  if (ast.x.length < 3) continue; // destroyed
+    if (polygonsIntersectOrContain(playerX, playerY, ast.x, ast.y)) {
+      console.log("Player hit!");
+				 hit = true;
+      // In a real game: end or reduce HP, etc.
+    }
+  }
+		if (hit){
+if (keys["ArrowLeft"]) {
+    for (let i = 0; i < playerX.length; i++) {
+      playerX[i] += speed;
+    }
+  }
+  if (keys["ArrowRight"]) {
+    for (let i = 0; i < playerX.length; i++) {
+      playerX[i] -= speed;
+    }
+  }
+  if (keys["ArrowUp"]) {
+    for (let i = 0; i < playerY.length; i++) {
+      playerY[i] += speed;
+    }
+  }
+  if (keys["ArrowDown"]) {
+    for (let i = 0; i < playerY.length; i++) {
+      playerY[i] -= speed;
+    }
+  }
+		}
+}
+
+function draw() {
+  ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+  // Draw player
+  ctx.beginPath();
+  ctx.moveTo(playerX[0], playerY[0]);
+  for (let i = 1; i < playerX.length; i++) {
+    ctx.lineTo(playerX[i], playerY[i]);
+  }
+  ctx.closePath();
+  ctx.fillStyle = "blue";
+  ctx.fill();
+
+  // Draw asteroids (polygons)
+  asteroids.forEach(ast => {
+    if (ast.x.length == 1) {
+      ctx.beginPath();
+      ctx.arc(ast.x[0], ast.y[0], ast.r, 0, 2 * Math.PI);
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "gray";
+      ctx.fill();
+      return;
+    }
+    if (ast.x.length < 3) return; // destroyed
+    ctx.beginPath();
+    ctx.moveTo(ast.x[0], ast.y[0]);
+    for (let i = 1; i < ast.x.length; i++) {
+      ctx.lineTo(ast.x[i], ast.y[i]);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = "gray";
+    ctx.fill();
+  });
+
+  // Draw bullets (small circles)
+  bullets.forEach(b => {
+    if (!b.active) return;
+    ctx.beginPath();
+    ctx.arc(b.cx, b.cy, b.r, 0, 2 * Math.PI);
+    ctx.fillStyle = "red";
+    ctx.fill();
+  });
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+
+</body>
+</html>
+
