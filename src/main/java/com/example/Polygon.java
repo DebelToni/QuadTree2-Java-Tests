@@ -12,8 +12,8 @@ public class Polygon {
   private String name;
   private static int id = 0;
 
-  public Polygon(int size, List<Position> vertices) {
-    this.size = size;
+  public Polygon(List<Position> vertices) {
+    this.size = vertices.size();
     for (int i = 0; i < size; i++) {
       this.vertices.add(new Position(vertices.get(i).getX(), vertices.get(i).getY()));
     }
@@ -31,7 +31,7 @@ public class Polygon {
       }
     }
     this.type = "Custom";
-    this.name = this.type + id;
+    this.name = this.type + id++;
   }
 
   // znam che mozeh da napravq otdelni klasove za otdelnite figuri ama taka e
@@ -44,8 +44,9 @@ public class Polygon {
       vertices.add(new Position(center.getX() - radius / 2, center.getY() + radius / 2));
       this.size = 4;
       this.center = new Position(center.getX(), center.getY());
-      this.radius = radius;
+      this.radius = radius/2;
       this.type = type;
+      this.name = this.type + id++;
     } else if (type.equals("Circle")) {
       List<Position> vertices = new ArrayList<>();
       for (int i = 0; i < 360; i++) {
@@ -61,10 +62,14 @@ public class Polygon {
       this.center = new Position(center.getX(), center.getY());
       this.radius = radius;
       this.type = type;
+      this.name = this.type + id++;
     }
   }
 
-  public Polygon(String type, Position center, float side1, float side2) { // rectangle
+  // ne e nuzno da slagam Type ama da si lichi poveche pri testvane kakvo
+  // suzdavam
+
+  public Polygon(String type, Position center, float side1, float side2) {
     this.type = "Rectangle";
     this.center = center;
     this.size = 4;
@@ -73,10 +78,10 @@ public class Polygon {
     this.vertices.add(new Position(center.getX() + side1 / 2, center.getY() - side2 / 2));
     this.vertices.add(new Position(center.getX() + side1 / 2, center.getY() + side2 / 2));
     this.vertices.add(new Position(center.getX() - side1 / 2, center.getY() + side2 / 2));
+    this.name = this.type + id++;
   }
 
   public Polygon(String type, Position center, float side1, float side2, float height) {
-    // trapezioid s prav ugul pri lqvata strana
     this.type = "Trapezoid";
     this.center = center;
     this.size = 4;
@@ -85,6 +90,7 @@ public class Polygon {
     this.vertices.add(new Position(center.getX() - side1 / 2, center.getY() + height / 2));
     this.vertices.add(
         new Position(center.getX() - side1 / 2 + side2 / 2, center.getY() + height / 2));
+    this.name = this.type + id++;
   }
 
   private float findDistanceToCenter(Position p) {
@@ -110,6 +116,10 @@ public class Polygon {
 
   public String getName() {
     return name;
+  }
+
+  public String posToString() {
+    return center.toString();
   }
 
   public Position[] getVertices() {
