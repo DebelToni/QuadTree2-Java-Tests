@@ -128,4 +128,32 @@ public class CollisionDetectorTest {
         assertEquals(true, CollisionDetector.polygonIntersectsCircle(squarePoly, centerEdge, radius3));
     }
 
+<<<<<<< HEAD
+=======
+  @Test
+  public void testCircleCollision() {
+    CollisionDetector collisionDetector = new CollisionDetector();
+    Polygon squarePoly = new Polygon("Square", new Position(5f, 5f), 10f);
+    Position centerIn = new Position(10f, 10f);
+    double radius1 = 2.0;
+    assertEquals(true, collisionDetector.polygonIntersectsCircle(squarePoly, centerIn, radius1));
+  }
+
+  @Test
+  public void testCircleCollisionSamePoint() {
+    CollisionDetector collisionDetector = new CollisionDetector();
+    Position centerIn = new Position(10f, 8f);
+    double radius1 = 2.0;
+
+    List<Position> possitions = new ArrayList<Position>();
+    possitions.add(new Position(10, 10));
+    possitions.add(new Position(10, 10));
+    possitions.add(new Position(10, 10));
+    Polygon squarePoly = new Polygon(possitions);
+
+    assertEquals(true, collisionDetector.polygonIntersectsCircle(squarePoly, centerIn, radius1));
+  }
+
+>>>>>>> 84ac445 (Finished pls work)
 }
+

@@ -4,7 +4,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.List;
+<<<<<<< HEAD
 //import org.junit.jupiter.api.BeforeEach;
+=======
+>>>>>>> 84ac445 (Finished pls work)
 import org.junit.jupiter.api.Test;
 
 public class PolygonTest {
